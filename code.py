@@ -2,7 +2,7 @@
 AutoimmuneTrans-miR: Fixed & Fully Reproducible Code
 Tasks: 1. Autoimmune vs Non-Autoimmune (Binary)
        2. Specific Disease Prediction (Multi-class)
-Features: Fixed Random Seeds, Leakage-free split, Oversampling on Train-only, GPU support, t-SNE, Confusion Matrix.
+Features: Fixed Random Seeds, Leakage-free split, Oversampling on Train-only, GPU support, t-SNE, Confusion Matrix, Best Model Checkpointing.
 """
 
 import os
@@ -137,7 +137,7 @@ model = AutoimmuneTransMiR(num_diseases).to(device)
 
 
 # ==========================================
-# 6. Training with Validation
+# 6. Training with Validation & Best Model Save
 # ==========================================
 optimizer = AdamW(model.parameters(), lr=3e-5, weight_decay=0.01)
 epochs = 7
@@ -147,6 +147,8 @@ criterion_bin = nn.BCEWithLogitsLoss()
 criterion_dis = nn.CrossEntropyLoss()
 
 train_losses, val_losses = [], []
+best_val_loss = float('inf')
+best_model_path = 'best_model.pt'
 
 for epoch in range(epochs):
     model.train()
@@ -176,13 +178,22 @@ for epoch in range(epochs):
     avg_val_loss = total_val_loss / len(val_loader)
     val_losses.append(avg_val_loss)
 
-    print(f"Epoch {epoch+1}/{epochs} -> Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+    # Save Best Model Logic
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        torch.save(model.state_dict(), best_model_path)
+        print(f"Epoch {epoch+1}/{epochs} -> Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f} [Best Model Saved]")
+    else:
+        print(f"Epoch {epoch+1}/{epochs} -> Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
 
 
 # ==========================================
-# 7. EVALUATION & VISUALIZATION
+# 7. EVALUATION & VISUALIZATION (Using Best Model)
 # ==========================================
+# Load Best Model Weights for Test Evaluation
+model.load_state_dict(torch.load(best_model_path))
 model.eval()
+
 all_embeddings = []
 bin_true, bin_probs, bin_preds = [], [], []
 dis_true, dis_probs, dis_preds = [], [], []
